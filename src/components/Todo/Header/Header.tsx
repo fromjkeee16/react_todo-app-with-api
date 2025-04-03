@@ -3,17 +3,16 @@ import React, { FormEvent, useEffect, useMemo, useRef } from 'react';
 import { Todo } from '../../../types/Todo';
 import classNames from 'classnames';
 import { TodoCreateHandler, TodoToggleAll } from '../../../types/TodoMethods';
-import { NetworkStatus } from '../../../types/AppNetworkStatus';
 
 type Props = {
   todos: Todo[];
   onAddTodo: TodoCreateHandler;
-  creationStatus: NetworkStatus;
+  isLoading: boolean;
   onToggleAll: TodoToggleAll;
 };
 
 export const TodoHeader: React.FC<Props> = React.memo(
-  ({ todos, onAddTodo, creationStatus, onToggleAll }) => {
+  ({ todos, isLoading, onAddTodo, onToggleAll }) => {
     const allActive = useMemo(
       () => todos?.every(todo => todo.completed) || false,
       [todos],
@@ -21,18 +20,21 @@ export const TodoHeader: React.FC<Props> = React.memo(
     const titleInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-      if (creationStatus === NetworkStatus.Idle) {
-        if (titleInputRef?.current) {
+      titleInputRef.current?.focus();
+    }, [todos, isLoading]);
+
+    const handleSubmitForm = async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      const newTitle = titleInputRef.current?.value?.trim() || '';
+
+      try {
+        await onAddTodo(newTitle);
+
+        if (titleInputRef.current) {
           titleInputRef.current.value = '';
         }
-      }
-
-      titleInputRef?.current?.focus();
-    }, [creationStatus]);
-
-    const handleSubmitForm = (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      onAddTodo(titleInputRef?.current?.value || '');
+      } catch {}
     };
 
     return (
@@ -55,7 +57,7 @@ export const TodoHeader: React.FC<Props> = React.memo(
             className="todoapp__new-todo"
             placeholder="What needs to be done?"
             ref={titleInputRef}
-            disabled={creationStatus === NetworkStatus.Sending}
+            disabled={isLoading}
           />
         </form>
       </header>

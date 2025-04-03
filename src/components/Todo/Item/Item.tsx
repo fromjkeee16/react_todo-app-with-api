@@ -53,13 +53,17 @@ export const TodoItem: React.FC<Props> = React.memo(
 
     const handleRemoveTodo = useCallback(() => {
       if (onRemove) {
-        onRemove(todo.id);
+        try {
+          onRemove(todo.id);
+        } catch {}
       }
     }, [onRemove, todo.id]);
 
-    const handleUpdateTodo = useCallback(() => {
+    const handleUpdateTodo = useCallback(async () => {
       if (onToggle) {
-        onToggle({ completed: !todo.completed }, todo);
+        try {
+          onToggle(todo, { completed: !todo.completed });
+        } catch {}
       }
     }, [onToggle, todo]);
 

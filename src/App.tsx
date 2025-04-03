@@ -15,14 +15,11 @@ import {
   updateTodo,
   USER_ID,
 } from './api/todos';
-import { NetworkStatus } from './types/AppNetworkStatus';
 import { getInitialFilterFromHash } from './utils/getUrlHash';
 
 const prepareTodos = (list: Todo[], filterBy: FilterOption) => {
-  let copy = [...list];
-
   if (filterBy !== FilterOption.ALL) {
-    copy = copy.filter(todo => {
+    return list.filter(todo => {
       switch (filterBy) {
         case FilterOption.ACTIVE: {
           return !todo.completed;
@@ -39,7 +36,7 @@ const prepareTodos = (list: Todo[], filterBy: FilterOption) => {
     });
   }
 
-  return copy;
+  return list;
 };
 
 export const App: React.FC = () => {
@@ -49,9 +46,6 @@ export const App: React.FC = () => {
   );
   const [todos, setTodos] = useState<Todo[]>([]);
   const [errorMessage, setErrorMessage] = useState(ErrorMessage.NO_ERROR);
-  const [networkTodoStatus, setNetworkTodoStatus] = useState(
-    NetworkStatus.Idle,
-  );
   const [temporaryTodo, setTemporaryTodo] = useState<Todo | null>(null);
 
   const [todoIdsInProcess, setTodoIdsInProcess] = useState<number[]>([]);
@@ -78,139 +72,96 @@ export const App: React.FC = () => {
       userId: USER_ID,
     };
 
-    setNetworkTodoStatus(NetworkStatus.Sending);
     setTemporaryTodo(newTodo);
 
     try {
       const response: Todo = await addTodo(newTodo);
 
       setTodos(current => [...current, response]);
-      setNetworkTodoStatus(NetworkStatus.Idle);
     } catch (error) {
       setErrorMessage(ErrorMessage.FAIL_CREATING);
-      setNetworkTodoStatus(NetworkStatus.Error);
+      throw error;
     } finally {
       setTemporaryTodo(null);
     }
   }, []);
 
-  const handleDeleteTodos = useCallback(async (...ids: number[]) => {
-    setTodoIdsInProcess(current => [...current, ...ids]);
-    setNetworkTodoStatus(NetworkStatus.Deleting);
+  const handleDeleteTodo = useCallback(async (id: number) => {
+    setTodoIdsInProcess(current => [...current, id]);
 
     try {
-      const results = await Promise.allSettled(ids.map(id => deleteTodo(id)));
+      await deleteTodo(id);
 
-      const successfullyDeleted = ids.filter(
-        (_, index) => results[index].status === 'fulfilled',
-      );
-
-      setTodos(current =>
-        current.filter(todo => !successfullyDeleted.includes(todo.id)),
-      );
-
-      const failedToDelete = ids.length - successfullyDeleted.length;
-
-      if (failedToDelete > 0) {
-        setErrorMessage(ErrorMessage.FAIL_DELETING);
-      }
+      setTodos(prev => prev.filter(todo => todo.id !== id));
+    } catch (error) {
+      setErrorMessage(ErrorMessage.FAIL_DELETING);
+      throw error;
     } finally {
-      setTodoIdsInProcess(current => current.filter(id => !ids.includes(id)));
+      setTodoIdsInProcess(current =>
+        current.filter(currentId => currentId !== id),
+      );
     }
   }, []);
 
   const handleDeleteCompleted = useCallback(async () => {
     const ids = todos.filter(todo => todo.completed).map(todo => todo.id);
+    const promises = ids.map(id => handleDeleteTodo(id));
 
-    handleDeleteTodos(...ids);
-  }, [todos, handleDeleteTodos]);
+    await Promise.allSettled(promises);
+  }, [todos, handleDeleteTodo]);
 
-  const handleUpdateTodos = useCallback(
-    async (dataToPatch: Partial<Todo>, ...list: Todo[]) => {
-      const ids = list.map(todo => todo.id);
-
-      setTodoIdsInProcess(current => [...current, ...ids]);
+  const handleUpdateTodo = useCallback(
+    async (todoToUpdate: Todo, dataToPatch: Partial<Todo>) => {
+      setTodoIdsInProcess(current => [...current, todoToUpdate.id]);
 
       try {
-        const updatedTodos = list.map(todo => ({
-          ...todo,
-          ...dataToPatch,
-        }));
+        const result = await updateTodo({ ...todoToUpdate, ...dataToPatch });
 
-        const results = await Promise.allSettled(updatedTodos.map(updateTodo));
+        setTodos(prevTodos => {
+          const index = prevTodos.findIndex(
+            todo => todo.id === todoToUpdate.id,
+          );
 
-        const successfullyUpdated = results
-          .filter(res => res.status === 'fulfilled')
-          .map(res => res.value);
+          const splicedArr = prevTodos.toSpliced(index, 1, result);
 
-        setTodos(prevTodos =>
-          prevTodos.map(
-            todo =>
-              successfullyUpdated.find(
-                updatedTodo => updatedTodo.id === todo.id,
-              ) || todo,
-          ),
-        );
-
-        const hasUnsuccess = list.length - successfullyUpdated.length;
-
-        if (hasUnsuccess) {
-          setErrorMessage(ErrorMessage.FAIL_UPDATING);
-        }
+          return splicedArr;
+        });
+      } catch (error) {
+        setErrorMessage(ErrorMessage.FAIL_UPDATING);
+        throw error;
       } finally {
-        setTodoIdsInProcess(current => current.filter(id => !ids.includes(id)));
+        setTodoIdsInProcess(current =>
+          current.filter(id => id !== todoToUpdate.id),
+        );
       }
     },
     [],
   );
 
-  const handleToggleAllTodos = () => {
+  const handleToggleAllTodos = async () => {
     const allCompleted = todos.every(todo => todo.completed);
-
     const todosToToggle = allCompleted
       ? todos
       : todos.filter(todo => !todo.completed);
+    const promises = todosToToggle.map(todo =>
+      handleUpdateTodo(todo, { completed: !allCompleted }),
+    );
 
-    handleUpdateTodos({ completed: !allCompleted }, ...todosToToggle);
+    await Promise.allSettled(promises);
   };
 
   // God bless whoever decided that this could be nice idea to make so many conditions for a part 3 task (specifically 'should stay open' etc.)
   const handleRenameTodo = useCallback(
     async (todoToUpdate: Todo, newTitle: Todo['title']) => {
       if (!newTitle) {
-        try {
-          await deleteTodo(todoToUpdate.id);
-
-          setTodos(prev => prev.filter(todo => todo.id !== todoToUpdate.id));
-        } catch (error) {
-          setErrorMessage(ErrorMessage.FAIL_DELETING);
-          throw error;
-        }
+        return handleDeleteTodo(todoToUpdate.id);
       }
 
-      try {
-        const result = await updateTodo({ ...todoToUpdate, title: newTitle });
-
-        setTodos(current => {
-          const copy = [...current];
-          const targetIndex = copy.findIndex(todo => todo.id === result.id);
-
-          copy.splice(targetIndex, 1, result);
-
-          return copy;
-        });
-      } catch (error) {
-        setErrorMessage(ErrorMessage.FAIL_UPDATING);
-        throw error;
-      }
+      return handleUpdateTodo(todoToUpdate, { title: newTitle });
     },
-    [],
+    [handleDeleteTodo, handleUpdateTodo],
   );
 
-  const handleClearError = useCallback(
-    () => setErrorMessage(ErrorMessage.NO_ERROR),
-    [],
-  );
   // #endregion
 
   // #region useEffects
@@ -229,6 +180,16 @@ export const App: React.FC = () => {
     fetchTodos();
   }, []);
 
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      setErrorMessage(ErrorMessage.NO_ERROR);
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [errorMessage]);
+
   // #endregion
 
   const visibleTodos = useMemo(
@@ -243,22 +204,22 @@ export const App: React.FC = () => {
         <TodoHeader
           todos={todos}
           onAddTodo={handleAddTodo}
-          creationStatus={networkTodoStatus}
+          isLoading={temporaryTodo !== null}
           onToggleAll={handleToggleAllTodos}
         />
         <TodoList
           todos={visibleTodos}
           todoIdsInProcess={todoIdsInProcess}
           temporaryTodo={temporaryTodo}
-          onTodoRemove={handleDeleteTodos}
-          onTodoToggle={handleUpdateTodos}
+          onTodoRemove={handleDeleteTodo}
+          onTodoUpdate={handleUpdateTodo}
           onTodoRename={handleRenameTodo}
         />
         {todos.length > 0 && (
           <TodoFooter
+            todos={todos}
             filterBy={filterBy}
             onFilterChange={handleFilterChange}
-            todos={todos}
             onDeleteCompleted={handleDeleteCompleted}
           />
         )}
@@ -266,7 +227,7 @@ export const App: React.FC = () => {
 
       <ErrorMessageComponent
         message={errorMessage}
-        onErrorHide={handleClearError}
+        setErrorMessage={setErrorMessage}
       />
     </div>
   );

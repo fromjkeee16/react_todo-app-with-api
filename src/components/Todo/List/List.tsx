@@ -12,7 +12,7 @@ type Props = {
   todoIdsInProcess: Todo['id'][];
   temporaryTodo: Todo | null;
   onTodoRemove: TodoRemoveHandler;
-  onTodoToggle: TodoUpdate;
+  onTodoUpdate: TodoUpdate;
   onTodoRename: TodoRename;
 };
 
@@ -22,7 +22,7 @@ export const TodoList: React.FC<Props> = React.memo(
     todoIdsInProcess,
     temporaryTodo,
     onTodoRemove,
-    onTodoToggle,
+    onTodoUpdate,
     onTodoRename,
   }) => {
     return (
@@ -33,7 +33,7 @@ export const TodoList: React.FC<Props> = React.memo(
             todo={todo}
             onRemove={onTodoRemove}
             isLoading={todoIdsInProcess.includes(todo.id)}
-            onToggle={onTodoToggle}
+            onToggle={onTodoUpdate}
             onRename={onTodoRename}
           />
         ))}

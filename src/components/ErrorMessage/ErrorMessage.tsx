@@ -1,24 +1,14 @@
 import classNames from 'classnames';
 import { ErrorType } from '../../types/ErrorTypes';
-import React, { useEffect } from 'react';
+import React from 'react';
 
 type Props = {
   message: ErrorType;
-  onErrorHide: () => void;
+  setErrorMessage: (newMessage: ErrorType) => void;
 };
 
 export const ErrorMessageComponent: React.FC<Props> = React.memo(
-  ({ message, onErrorHide }) => {
-    useEffect(() => {
-      const timerId = window.setTimeout(() => {
-        onErrorHide();
-      }, 3000);
-
-      return () => {
-        window.clearTimeout(timerId);
-      };
-    }, [message, onErrorHide]);
-
+  ({ message, setErrorMessage }) => {
     return (
       <div
         data-cy="ErrorNotification"
@@ -33,7 +23,7 @@ export const ErrorMessageComponent: React.FC<Props> = React.memo(
           data-cy="HideErrorButton"
           type="button"
           className="delete"
-          onClick={onErrorHide}
+          onClick={() => setErrorMessage(ErrorType.NO_ERROR)}
         />
         {message}
       </div>
