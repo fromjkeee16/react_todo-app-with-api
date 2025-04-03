@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Todo } from '../../../types/Todo';
 import classNames from 'classnames';
 import {
@@ -19,18 +19,17 @@ export const TodoItem: React.FC<Props> = React.memo(
   ({ todo, isLoading, onRemove, onToggle, onRename }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [editedTitle, setEditedTitle] = useState('');
+    const inputTitleRef = useRef<HTMLInputElement>(null);
 
     const handleTitleDoubleClick = () => {
       setIsEditing(true);
-      setEditedTitle(todo.title);
     };
 
     const handleFormSubmit = useCallback(
       async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        const newTitle = editedTitle.trim();
+        const newTitle = inputTitleRef.current?.value.trim() || '';
 
         if (newTitle === todo.title) {
           setIsEditing(false);
@@ -48,7 +47,7 @@ export const TodoItem: React.FC<Props> = React.memo(
           }
         }
       },
-      [editedTitle, onRename, todo],
+      [onRename, todo],
     );
 
     const handleRemoveTodo = useCallback(() => {
@@ -81,6 +80,13 @@ export const TodoItem: React.FC<Props> = React.memo(
       };
     }, []);
 
+    useEffect(() => {
+      if (isEditing && inputTitleRef.current) {
+        inputTitleRef.current.focus();
+        inputTitleRef.current.value = todo.title;
+      }
+    }, [isEditing, todo.title]);
+
     return (
       <div
         data-cy="Todo"
@@ -106,9 +112,7 @@ export const TodoItem: React.FC<Props> = React.memo(
               type="text"
               className="todo__title-field"
               placeholder="Leave empty to delete this todo..."
-              onChange={event => setEditedTitle(event.target.value)}
-              value={editedTitle}
-              autoFocus
+              ref={inputTitleRef}
             />
           </form>
         ) : (
