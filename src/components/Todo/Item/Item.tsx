@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Todo } from '../../../types/Todo';
 import classNames from 'classnames';
 import {
@@ -25,46 +25,45 @@ export const TodoItem: React.FC<Props> = React.memo(
       setIsEditing(true);
     };
 
-    const handleFormSubmit = useCallback(
-      async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
+    const handleFormSubmit = async (
+      event: React.FormEvent<HTMLFormElement>,
+    ) => {
+      event.preventDefault();
 
-        const newTitle = inputTitleRef.current?.value.trim() || '';
+      const newTitle = inputTitleRef.current?.value.trim() || '';
 
-        if (newTitle === todo.title) {
+      if (newTitle === todo.title) {
+        setIsEditing(false);
+
+        return;
+      }
+
+      if (onRename) {
+        setIsProcessing(true);
+        try {
+          await onRename(todo, newTitle);
           setIsEditing(false);
-
-          return;
+        } finally {
+          setIsProcessing(false);
         }
+      }
+    };
 
-        if (onRename) {
-          setIsProcessing(true);
-          try {
-            await onRename(todo, newTitle);
-            setIsEditing(false);
-          } finally {
-            setIsProcessing(false);
-          }
-        }
-      },
-      [onRename, todo],
-    );
-
-    const handleRemoveTodo = useCallback(() => {
+    const handleRemoveTodo = () => {
       if (onRemove) {
         try {
           onRemove(todo.id);
         } catch {}
       }
-    }, [onRemove, todo.id]);
+    };
 
-    const handleUpdateTodo = useCallback(async () => {
+    const handleUpdateTodo = async () => {
       if (onToggle) {
         try {
           onToggle(todo, { completed: !todo.completed });
         } catch {}
       }
-    }, [onToggle, todo]);
+    };
 
     useEffect(() => {
       const handleEscapePress = (event: KeyboardEvent) => {

@@ -16,33 +16,29 @@ type Props = {
   onTodoRename: TodoRename;
 };
 
-export const TodoList: React.FC<Props> = React.memo(
-  ({
-    todos,
-    todoIdsInProcess,
-    temporaryTodo,
-    onTodoRemove,
-    onTodoUpdate,
-    onTodoRename,
-  }) => {
-    return (
-      <section className="todoapp__main" data-cy="TodoList">
-        {todos.map(todo => (
-          <TodoItem
-            key={todo.id}
-            todo={todo}
-            onRemove={onTodoRemove}
-            isLoading={todoIdsInProcess.includes(todo.id)}
-            onToggle={onTodoUpdate}
-            onRename={onTodoRename}
-          />
-        ))}
-        {temporaryTodo && (
-          <TodoItem key={-1} todo={temporaryTodo} isLoading={true} />
-        )}
-      </section>
-    );
-  },
-);
-
-TodoList.displayName = 'TodoList';
+export const TodoList: React.FC<Props> = ({
+  todos,
+  todoIdsInProcess,
+  temporaryTodo,
+  onTodoRemove,
+  onTodoUpdate,
+  onTodoRename,
+}) => {
+  return (
+    <section className="todoapp__main" data-cy="TodoList">
+      {todos.map(todo => (
+        <TodoItem
+          key={todo.id}
+          todo={todo}
+          onRemove={onTodoRemove}
+          isLoading={todoIdsInProcess.includes(todo.id)}
+          onToggle={onTodoUpdate}
+          onRename={onTodoRename}
+        />
+      ))}
+      {temporaryTodo && (
+        <TodoItem key={-1} todo={temporaryTodo} isLoading={true} />
+      )}
+    </section>
+  );
+};

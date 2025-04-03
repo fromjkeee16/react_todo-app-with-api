@@ -52,9 +52,9 @@ export const App: React.FC = () => {
   // #endregion
 
   // #region handlers
-  const handleFilterChange = useCallback((newType: FilterOption) => {
+  const handleFilterChange = (newType: FilterOption) => {
     setFilterBy(newType);
-  }, []);
+  };
 
   const handleAddTodo = useCallback(async (todoTitle: string) => {
     const sanitizedTitle = todoTitle.trim();
@@ -103,12 +103,12 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  const handleDeleteCompleted = useCallback(async () => {
+  const handleDeleteCompleted = async () => {
     const ids = todos.filter(todo => todo.completed).map(todo => todo.id);
     const promises = ids.map(id => handleDeleteTodo(id));
 
     await Promise.allSettled(promises);
-  }, [todos, handleDeleteTodo]);
+  };
 
   const handleUpdateTodo = useCallback(
     async (todoToUpdate: Todo, dataToPatch: Partial<Todo>) => {
@@ -150,7 +150,6 @@ export const App: React.FC = () => {
     await Promise.allSettled(promises);
   };
 
-  // God bless whoever decided that this could be nice idea to make so many conditions for a part 3 task (specifically 'should stay open' etc.)
   const handleRenameTodo = useCallback(
     async (todoToUpdate: Todo, newTitle: Todo['title']) => {
       if (!newTitle) {
